@@ -1,0 +1,15 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(pip3:*)",
+      "WebFetch(domain:cointelegraph.com)",
+      "WebFetch(domain:gist.github.com)",
+      "WebFetch(domain:www.panewslab.com)",
+      "WebFetch(domain:www.theblockbeats.info)",
+      "WebFetch(domain:foresightnews.pro)",
+      "WebFetch(domain:www.odaily.news)",
+      "WebFetch(domain:m.theblockbeats.info)",
+      "WebFetch(domain:github.com)"
+    ]
+  }
+}
