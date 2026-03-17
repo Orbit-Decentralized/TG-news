@@ -1,9 +1,12 @@
 import asyncio
+import json
 import logging
 import html
 import os
+import re
 import threading
 from http.server import HTTPServer, BaseHTTPRequestHandler
+from urllib import request as urllib_request
 
 from telegram import Bot, Update
 from telegram.constants import ParseMode
@@ -42,12 +45,76 @@ logging.basicConfig(
 logger = logging.getLogger(__name__)
 
 
+def _strip_unsupported_tags(text: str) -> str:
+    # Keep textual content, remove all HTML/XML-like tags
+    return re.sub(r"<[^>]+>", "", text or "")
+
+
+def _translate_title_summary_sync(title: str, summary: str) -> str:
+    if not config.OPENROUTER_KEY:
+        return ""
+
+    combined_text = f"{title}\n{summary}"
+    prompt = (
+        "Translate the following content into natural English. "
+        "The first line is title and the second line is summary. "
+        "Remove all unsupported Telegram/HTML tags but preserve the full textual meaning. "
+        "Return only translated text, no explanation.\n\n"
+        f"{combined_text}"
+    )
+
+    payload = {
+        "model": config.OPENROUTER_MODEL,
+        "messages": [
+            {"role": "system", "content": "You are a precise translation assistant."},
+            {"role": "user", "content": prompt},
+        ],
+        "temperature": 0,
+    }
+
+    req = urllib_request.Request(
+        "https://openrouter.ai/api/v1/chat/completions",
+        data=json.dumps(payload).encode("utf-8"),
+        headers={
+            "Authorization": f"Bearer {config.OPENROUTER_KEY}",
+            "Content-Type": "application/json",
+        },
+        method="POST",
+    )
+
+    try:
+        with urllib_request.urlopen(req, timeout=20) as resp:
+            data = json.loads(resp.read().decode("utf-8"))
+        content = data["choices"][0]["message"]["content"].strip()
+        return _strip_unsupported_tags(content)
+    except Exception as e:
+        logger.warning(f"OpenRouter translation failed, skip translated text: {e}")
+        return ""
+
+
+async def _with_translated_text(news: dict) -> dict:
+    translated_text = await asyncio.to_thread(
+        _translate_title_summary_sync,
+        news["title"],
+        news["summary"] if news["summary"] else "",
+    )
+
+    if not translated_text:
+        return news
+
+    translated_news = dict(news)
+    translated_news["translated_text"] = translated_text
+    return translated_news
+
+
 def format_message(news: dict) -> str:
     """Format a single news item into a Telegram message."""
     icon = "🐦" if news["type"] == "twitter" else "📰"
     source = html.escape(news["source"])
     title = html.escape(news["title"])
-    summary = html.escape(news["summary"]) if news["summary"] else ""
+    raw_summary = news["summary"] if news["summary"] else ""
+    summary = html.escape(_strip_unsupported_tags(raw_summary)) if raw_summary else ""
+    translated_text = html.escape(news.get("translated_text", ""))
     url = news["url"]
     published = news.get("published", "")
 
@@ -61,6 +128,9 @@ def format_message(news: dict) -> str:
         if len(summary) > 150:
             summary = summary[:150] + "..."
         lines.append(f"\n{summary}")
+
+    if translated_text:
+        lines.append(f"\n🌐 {translated_text}")
 
     lines.append(f"\n🔗 <a href=\"{url}\">Read full article</a>")
 
@@ -87,7 +157,8 @@ async def scan_and_send(bot: Bot):
             continue
 
         try:
-            msg = format_message(news)
+            news_with_translation = await _with_translated_text(news)
+            msg = format_message(news_with_translation)
             await bot.send_message(
                 chat_id=config.TELEGRAM_CHAT_ID,
                 text=msg,

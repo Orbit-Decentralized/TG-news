@@ -4,3 +4,4 @@ __pycache__/
 *.db
 twikit_cookies.json
 venv
+.vscode

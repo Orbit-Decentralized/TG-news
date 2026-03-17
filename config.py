@@ -12,6 +12,10 @@ TWITTER_USERNAME = os.getenv("TWITTER_USERNAME", "")
 TWITTER_EMAIL = os.getenv("TWITTER_EMAIL", "")
 TWITTER_PASSWORD = os.getenv("TWITTER_PASSWORD", "")
 
+# OpenRouter
+OPENROUTER_KEY = os.getenv("OPENROUTER_KEY", "")
+OPENROUTER_MODEL = os.getenv("OPENROUTER_MODEL", "qwen/qwen3.5-27b")
+
 # Scan interval (seconds)
 SCAN_INTERVAL = 3600  # 1 hour
 
