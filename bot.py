@@ -132,8 +132,8 @@ def format_message(news: dict) -> str:
         lines.append(f"\n{summary}")
 
     if translated_text:
-        if len(translated_text) > 150:
-            translated_text = translated_text[:150] + "..."
+        if len(translated_text) > 300:
+            translated_text = translated_text[:300] + "..."
         lines.append(f"\n🌐 {translated_text}")
 
     lines.append(f'\n🔗 <a href="{url}">Read full article</a>')
