@@ -27,11 +27,21 @@ async def init_db():
                 news_id TEXT PRIMARY KEY,
                 source TEXT,
                 title TEXT,
+                summary TEXT,
+                translated_text TEXT,
                 url TEXT,
                 sent_at TEXT
             )
             """
         )
+
+        cur = conn.execute("PRAGMA table_info(sent_news)")
+        existing_cols = {row[1] for row in cur.fetchall()}
+        if "summary" not in existing_cols:
+            conn.execute("ALTER TABLE sent_news ADD COLUMN summary TEXT")
+        if "translated_text" not in existing_cols:
+            conn.execute("ALTER TABLE sent_news ADD COLUMN translated_text TEXT")
+
         conn.execute(
             "DELETE FROM sent_news WHERE sent_at < ?",
             (cutoff_iso,),
@@ -47,15 +57,23 @@ async def is_sent(news_id: str) -> bool:
         return cur.fetchone() is not None
 
 
-async def mark_sent(news_id: str, source: str, title: str, url: str):
+async def mark_sent(
+    news_id: str,
+    source: str,
+    title: str,
+    url: str,
+    summary: str = "",
+    translated_text: str = "",
+):
     sent_at = datetime.now(timezone.utc).isoformat()
     with _get_conn() as conn:
         conn.execute(
             """
-            INSERT OR REPLACE INTO sent_news (news_id, source, title, url, sent_at)
-            VALUES (?, ?, ?, ?, ?)
+            INSERT OR REPLACE INTO sent_news
+            (news_id, source, title, summary, translated_text, url, sent_at)
+            VALUES (?, ?, ?, ?, ?, ?, ?)
             """,
-            (news_id, source, title, url, sent_at),
+            (news_id, source, title, summary, translated_text, url, sent_at),
         )
 
 

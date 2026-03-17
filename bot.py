@@ -165,7 +165,14 @@ async def scan_and_send(bot: Bot):
                 parse_mode=ParseMode.HTML,
                 disable_web_page_preview=False,
             )
-            await mark_sent(news["id"], news["source"], news["title"], news["url"])
+            await mark_sent(
+                news["id"],
+                news["source"],
+                news["title"],
+                news["url"],
+                news.get("summary", "") or "",
+                news_with_translation.get("translated_text", "") or "",
+            )
             sent_count += 1
 
             # Avoid triggering Telegram rate limits
