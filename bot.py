@@ -23,7 +23,7 @@ class HealthCheckHandler(BaseHTTPRequestHandler):
         self.send_header("Content-type", "text/plain")
         self.end_headers()
         self.wfile.write(b"OK")
-    
+
     def log_message(self, format, *args):
         pass  # suppress logs
 
@@ -34,6 +34,8 @@ def start_health_server():
     thread = threading.Thread(target=server.serve_forever, daemon=True)
     thread.start()
     logging.getLogger(__name__).info(f"Health check server started on port {port}")
+
+
 from db import init_db, is_sent, mark_sent
 from sources.rss_fetcher import fetch_rss_news
 from sources.twitter_fetcher import fetch_twitter_news
@@ -130,9 +132,11 @@ def format_message(news: dict) -> str:
         lines.append(f"\n{summary}")
 
     if translated_text:
+        if len(translated_text) > 150:
+            translated_text = translated_text[:150] + "..."
         lines.append(f"\n🌐 {translated_text}")
 
-    lines.append(f"\n🔗 <a href=\"{url}\">Read full article</a>")
+    lines.append(f'\n🔗 <a href="{url}">Read full article</a>')
 
     if published:
         lines.append(f"⏰ {published}")
@@ -186,6 +190,7 @@ async def scan_and_send(bot: Bot):
 
 # ── Telegram commands ──────────────────────────────────────────
 
+
 async def cmd_start(update: Update, context: ContextTypes.DEFAULT_TYPE):
     await update.message.reply_text(
         "🔮 Prediction market news tracker is now running!\n\n"
@@ -220,12 +225,12 @@ async def cmd_sources(update: Update, context: ContextTypes.DEFAULT_TYPE):
     rss_list = "\n".join(f"  • {name}" for name in config.RSS_FEEDS)
     tw_list = "\n".join(f"  • @{acc}" for acc in config.TWITTER_USERS)
     await update.message.reply_text(
-        f"📰 RSS sources:\n{rss_list}\n\n"
-        f"🐦 Twitter accounts:\n{tw_list}"
+        f"📰 RSS sources:\n{rss_list}\n\n" f"🐦 Twitter accounts:\n{tw_list}"
     )
 
 
 # ── Main ─────────────────────────────────────────────────
+
 
 async def post_init(app):
     """Initialize scheduler after the application starts."""
@@ -240,7 +245,9 @@ async def post_init(app):
         id="news_scanner",
     )
     scheduler.start()
-    logger.info(f"Scheduler started, scanning every {config.SCAN_INTERVAL // 60} minutes")
+    logger.info(
+        f"Scheduler started, scanning every {config.SCAN_INTERVAL // 60} minutes"
+    )
 
     # Scan once at startup
     asyncio.create_task(scan_and_send(app.bot))
@@ -249,7 +256,7 @@ async def post_init(app):
 def main():
     # Start Cloud Run health check server
     start_health_server()
-    
+
     if not config.TELEGRAM_BOT_TOKEN:
         print("❌ Please set TELEGRAM_BOT_TOKEN first; see .env.example")
         return
@@ -257,7 +264,12 @@ def main():
         print("❌ Please set TELEGRAM_CHAT_ID first; see .env.example")
         return
 
-    app = ApplicationBuilder().token(config.TELEGRAM_BOT_TOKEN).post_init(post_init).build()
+    app = (
+        ApplicationBuilder()
+        .token(config.TELEGRAM_BOT_TOKEN)
+        .post_init(post_init)
+        .build()
+    )
 
     app.add_handler(CommandHandler("start", cmd_start))
     app.add_handler(CommandHandler("scan", cmd_scan))
